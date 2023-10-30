@@ -1,5 +1,5 @@
 # Assignment 1:  
-
+install.packages('tictoc')
 library(tweedie) 
 library(ggplot2)
 library(tictoc)

@@ -1,8 +1,11 @@
-# Assignment 1:  
 
 library(tweedie) 
 library(ggplot2)
 library(tictoc)
+library(foreach)
+library(doParallel)
+
+
 
 
 tic()
@@ -29,20 +32,26 @@ df <-
     M = 1000, 
     share_reject = NA) 
 
+max_cores <- 8
+Cores <- min(parallel::detectCores(), max_cores)
+cat("Number of CPU cores:", Cores, "\n")
 
-for(i in 1:nrow(df)){ 
-  df$share_reject[i] <-  
-    MTweedieTests( 
-      N=df$N[i], 
-      M=df$M[i], 
-      sig=.05) 
-} 
+# Create a cluster with the specified number of cores
+cl <- makeCluster(Cores)
+registerDoParallel(cl)
 
+clusterEvalQ(cl, library(tweedie))
 
+# Run the foreach loop
+df$share_reject <- foreach(i = 1:nrow(df), .combine = c) %dopar% {
+  result <- MTweedieTests(N = df$N[i], M = df$M[i], sig = 0.05)
+  return(result)
+}
 
+stopCluster(cl)
 
 ## Assignemnt 4 
-   
+
 # This is one way of solving it - maybe you have a better idea? 
 # First, write a function for simulating data, where the "type" 
 # argument controls the distribution. We also need to ensure 

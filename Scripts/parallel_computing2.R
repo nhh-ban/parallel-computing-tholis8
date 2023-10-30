@@ -1,9 +1,8 @@
-# Assignment 1:  
-
 library(tweedie) 
 library(ggplot2)
 library(tictoc)
-
+library(foreach)
+library(doParallel)
 
 tic()
 simTweedieTest <-  
@@ -15,11 +14,26 @@ simTweedieTest <-
   } 
 
 
-# Assignment 2:  
-MTweedieTests <-  
-  function(N,M,sig){ 
-    sum(replicate(M,simTweedieTest(N)) < sig)/M 
-  } 
+num_cores <- 8
+
+# Defining  MTweedieTests function with parallel computing
+MTweedieTests <- function(N, M, sig, num_cores) {
+  clusters <- makeCluster(num_cores)
+  registerDoParallel(clusters)
+  
+  clusterExport(clusters, c("simTweedieTest", "rtweedie"))
+  
+  results <- foreach(i = 1:num_cores, .combine = '+', .export = c("simTweedieTest")) %dopar% {
+    simulations_per_core <- M %/% num_cores
+    if (i <= M %% num_cores) simulations_per_core <- simulations_per_core + 1
+    sum(replicate(simulations_per_core, simTweedieTest(N)) < sig)
+  }
+  
+  stopCluster(clusters)
+  
+  return(sum(results) / M)
+}
+
 
 
 # Assignment 3:  
@@ -35,14 +49,15 @@ for(i in 1:nrow(df)){
     MTweedieTests( 
       N=df$N[i], 
       M=df$M[i], 
-      sig=.05) 
+      sig=.05, 
+      num_cores=num_cores)   #Added num_cores to the function 
 } 
 
 
 
 
 ## Assignemnt 4 
-   
+
 # This is one way of solving it - maybe you have a better idea? 
 # First, write a function for simulating data, where the "type" 
 # argument controls the distribution. We also need to ensure 
@@ -114,7 +129,6 @@ df <-
   ) %>%
   as_tibble()
 
-
 for (i in 1:nrow(df)) {
   print(i)
   df$share_reject[i] <-
@@ -134,8 +148,6 @@ df %>%
   geom_line() +
   geom_hline(yintercept = .05) +
   theme_bw() 
-
-
 
 
 # We can use tictoc to time a function..:
